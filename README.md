@@ -12,16 +12,30 @@ cd Console-library
 python web.py --demo
 ```
 
-Open **http://127.0.0.1:8765/** and choose **Explore the demo**. On Windows, `py` can replace `python`; on macOS/Linux, use `python3` if needed. If the port is occupied, use `python web.py --demo --port 8766` and open that port instead.
+Open **http://127.0.0.1:8765/** and choose **Explore the demo**, then **Reader** or **Librarian**. You can also use **Try demo roles** in the header to switch between them. On Windows, `py` can replace `python`; on macOS/Linux, use `python3` if needed. If the port is occupied, use `python web.py --demo --port 8766` and open that port instead.
 
-The demo creates a temporary reader account and six sample books. All demo users share that temporary catalog; it resets when the server stops. It never changes your normal library store. Demo access is available only with `--demo`.
+The demo starts with six sample books and creates temporary role accounts without asking for credentials. All demo users share the temporary catalog and one demo librarian; it resets when the server stops. It never changes your normal library store. Demo role access is available only with `--demo`, which always uses a temporary file. It cannot grant admin access to a persistent library.
 
 ### A two-minute walkthrough
 
-1. Explore the demo, then search for **Changes** or **Ama Ata Aidoo**.
-2. Choose **Borrow book**, then open **My bookshelf** to see the seven-day due date.
-3. Choose **Return book**, then open **Reading history** to see the return.
-4. To try reservations, keep the original reader signed in after borrowing. Open a separate browser or private window, start another demo reader, and reserve the same title. Return it in the original window; only the first reader in the queue can borrow it next. Demo reader credentials are generated internally, so signing out ends access to that reader.
+1. Enter as **Reader**, then search for **Changes** or **Ama Ata Aidoo**.
+2. Choose **Borrow book**. The app opens **My bookshelf**, shows a success message, and displays the seven-day due date. If you click Borrow as a visitor, the sign-in dialog explains what to do and offers **Continue as demo reader**; the original borrowing action then completes automatically.
+3. Use **Try demo roles → Librarian**. The overview shows the active loan. Open **Loans & returns** and choose **Process return**, or add a title through **The collection**. Reports show real values from the shared local data.
+4. Switch back to **Reader** in the same session. Your reader identity and bookshelf are preserved; **Reading history** now includes the librarian-processed return.
+5. To try reservations, keep a reader signed in after borrowing. Open a separate browser/private window, start another demo reader, and reserve the same title. Return it in the original window; only the first reader in the queue can borrow it next.
+
+Signing out ends access to generated demo identities. Restarting the server expires sessions; an attempted borrow from a stale page opens the sign-in/demo recovery flow instead of silently failing. Refreshing also synchronizes the page with the server.
+
+### Two working roles
+
+| Reader | Librarian |
+| --- | --- |
+| Search, borrow, and reserve | Collection and circulation overview |
+| Personal bookshelf and due dates | Add catalog entries |
+| Return own books | Process returns on behalf of readers |
+| Personal reading history | Reservation queues and live text reports |
+
+Both roles use the same Python rules and data. The server checks librarian privileges on every management endpoint; hiding reader navigation is not the authorization boundary. In persistent mode, both roles sign in with their own username/password and only the local setup command can create the first admin.
 
 ## Use a persistent library
 
@@ -53,10 +67,10 @@ Run one application process per data file; simultaneous terminal and web process
 - Reader registration, sign-in, sign-out, personal loans, and return history.
 - Case-insensitive title matching and first-in, first-out reservations.
 - Seven-day loans; simulated late fines of **GHS 2 per day** after day seven.
-- Admin-only inventory additions and text reports.
+- A separate librarian desk for inventory additions, active loans, reader returns, reservation queues, and text reports.
 - Salted PBKDF2-HMAC-SHA256 password hashes with 600,000 iterations.
 - Local web sessions with HttpOnly/SameSite cookies, origin checks, and basic authentication throttling.
-- Subtle CSS transitions with reduced-motion support; no external fonts or animation packages.
+- Larger readable text, clear action buttons, and a book-cover opening effect on hover or keyboard focus. Touch actions do not depend on hover; reduced-motion mode disables the effect. No external fonts or animation packages.
 
 Book-cover compositions are original CSS illustrations, not reproductions of published covers.
 
@@ -72,7 +86,7 @@ The old default `admin/123` is never created in a new store. If migrating a stor
 python -m unittest -v
 ```
 
-Tests use temporary stores and local ephemeral HTTP ports. They cover password migration, authorization, registration, reservation order, return ownership, late fines, persistence, sessions, and the HTTP interface.
+Tests use temporary stores and local ephemeral HTTP ports. They cover password migration, authorization, registration, reservation order, return ownership, late fines, persistence, sessions, demo role switching, librarian-managed returns, expired sessions, and the HTTP interface.
 
 ## Project structure
 

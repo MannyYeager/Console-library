@@ -32,6 +32,7 @@ class LibraryServer(ThreadingHTTPServer):
         self.sessions = {}
         self.auth_attempts = []
         self.data_lock = threading.RLock()
+        self.demo_librarian = None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -74,11 +75,11 @@ class Handler(BaseHTTPRequestHandler):
         session = self.server.sessions.get(token)
         return (session[0] if session else None), token
 
-    def new_session(self, username):
+    def new_session(self, username, demo_roles=None):
         _, old_token = self.session()
         self.server.sessions.pop(old_token, None)
         token = secrets.token_urlsafe(32)
-        self.server.sessions[token] = (username, time.time() + 8 * 60 * 60)
+        self.server.sessions[token] = (username, time.time() + 8 * 60 * 60, demo_roles or {})
         return f"library_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800"
 
     def state(self):
@@ -101,6 +102,24 @@ class Handler(BaseHTTPRequestHandler):
                 "reservations": [{"title": title, "position": names.index(username) + 1}
                                  for title, names in lib.reservations.items() if username in names]}
 
+    def admin_state(self, username):
+        lib = self.server.library
+        if lib.users.get(username, {}).get("role") != "Admin":
+            raise ValueError("Sign in as a librarian to open the management desk.")
+        loans = []
+        for reader, records in lib.borrowed_records.items():
+            for record in records:
+                borrowed = datetime.strptime(record['date'], "%Y-%m-%d")
+                due = borrowed + timedelta(days=7)
+                loans.append({**record, "reader": reader, "due": due.strftime("%Y-%m-%d"),
+                              "overdue": (datetime.now() - borrowed).days > 7,
+                              "fine": max(0, (datetime.now() - borrowed).days - 7) * 2})
+        return {"loans": loans, "readers": sum(u.get('role') == 'Student' for u in lib.users.values()),
+                "reservations": [{"title": title, "readers": readers}
+                                 for title, readers in lib.reservations.items() if readers],
+                "returns": [{**record, "reader": reader} for reader, records in lib.history.items() for record in records],
+                "report": lib.report_text(username)}
+
     def do_GET(self):
         with self.server.data_lock:
             self.get_request()
@@ -112,6 +131,12 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/state":
             self.reply(200, self.state())
+        elif path == "/api/admin/state":
+            username, _ = self.session()
+            try:
+                self.reply(200, self.admin_state(username))
+            except ValueError as error:
+                self.reply(403, {"error": str(error)})
         elif path == "/api/report":
             username, _ = self.session()
             try:
@@ -155,10 +180,25 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(429, {"error": "Please wait a minute before trying again."})
                     return
                 self.server.auth_attempts.append(now)
+                demo_roles = {}
                 if path == "/api/demo":
                     if not self.server.demo:
                         raise ValueError("Demo access is disabled for this catalog.")
-                    username = lib.register_user("reader-" + secrets.token_hex(3), secrets.token_urlsafe(24))
+                    role = data.get("role", "reader")
+                    if role not in {"reader", "librarian"}:
+                        raise ValueError("Choose the reader or librarian demo.")
+                    old_session = self.server.sessions.get(token)
+                    demo_roles = dict(old_session[2]) if old_session else {}
+                    username = demo_roles.get(role)
+                    if not username:
+                        if role == "librarian":
+                            if not self.server.demo_librarian:
+                                self.server.demo_librarian = "librarian-" + secrets.token_hex(3)
+                                lib.create_admin(self.server.demo_librarian, secrets.token_urlsafe(24))
+                            username = self.server.demo_librarian
+                        else:
+                            username = lib.register_user("reader-" + secrets.token_hex(3), secrets.token_urlsafe(24))
+                        demo_roles[role] = username
                 else:
                     username = data.get("username", "").strip()
                     password = data.get("password", "")
@@ -169,8 +209,8 @@ class Handler(BaseHTTPRequestHandler):
                     elif not lib.authenticate(username, password):
                         self.reply(401, {"error": "Username or password is incorrect."})
                         return
-                cookie = self.new_session(username)
-                message = "Welcome. Your next chapter is waiting."
+                cookie = self.new_session(username, demo_roles)
+                message = "Librarian desk opened." if lib.users[username]['role'] == 'Admin' else "Reader session opened. Your next chapter is waiting."
             elif path == "/api/logout":
                 self.server.sessions.pop(token, None)
                 cookie = "library_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0"
@@ -178,6 +218,15 @@ class Handler(BaseHTTPRequestHandler):
             elif not username:
                 self.reply(401, {"error": "Please sign in to continue."})
                 return
+            elif path.startswith("/api/admin/"):
+                if lib.users[username].get('role') != 'Admin':
+                    self.reply(403, {"error": "Only a librarian can manage circulation."})
+                    return
+                if path == "/api/admin/return":
+                    message = lib.return_title(data.get('reader', ''), data.get('title', ''))
+                else:
+                    self.reply(404, {"error": "Action not found."})
+                    return
             elif path == "/api/borrow":
                 message = lib.borrow_title(username, data.get("title", ""))
             elif path == "/api/return":
