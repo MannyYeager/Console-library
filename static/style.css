@@ -181,7 +181,7 @@ dialog .eyebrow { margin: 9px 0 0; }
 dialog h2 { font-size: 35px; }
 dialog .muted { margin: 0 0 5px; line-height: 1.8; }
 .auth-toggle { background: transparent; font-size: 14px; color: #486737; padding: 9px; text-decoration: underline; min-height: 44px; }
-#auth-error { margin: 0; color: #963e27; font-size: 14px; }
+#auth-error, #role-error { margin: 0; color: #963e27; font-size: 14px; }
 .demo-continue { border: 1px solid #a7bd8f; background: #e5eed8; color: #34562a; padding: 13px; border-radius: 6px; font-size: 14px; font-weight: 600; min-height: 48px; }
 #role-dialog { width: min(730px, calc(100% - 32px)); }
 #role-dialog h2 { margin: 18px 0; }
@@ -260,7 +260,7 @@ dialog .muted { margin: 0 0 5px; line-height: 1.8; }
   .book-cover-area { height: 220px; }
   .book-object { width: 110px; height: 167px; }
   .book-cover { padding: 15px 9px; }
-  .book-cover strong { font-size: 18px; }
+  .book-cover strong { font-size: 17px; }
   .book-cover.long-title strong { font-size: 15px; margin-top: 10px; }
   .book-cover small { font-size: 7px; }
   .book-cover .edition { font-size: 5px; }
