@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Discover Ghanaian stories, borrow a book, and find your next chapter at the Ghana Community Library.">
+  <title>Ghana Community Library · Your next chapter</title>
+  <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Ghana Community Library home"><span class="brand-mark">g<span>c</span>l.</span><span>GHANA<br>COMMUNITY LIBRARY</span></a>
+    <div class="nav-label">YOUR READING ROOM</div>
+    <nav aria-label="Main navigation">
+      <button class="nav-item active" data-view="catalog"><span aria-hidden="true">▤</span> The collection <span id="catalog-count" class="count">6</span></button>
+      <button class="nav-item" data-view="loans"><span aria-hidden="true">⌑</span> My bookshelf <span id="loan-count" class="count">0</span></button>
+      <button class="nav-item" data-view="history"><span aria-hidden="true">◷</span> Reading history</button>
+    </nav>
+    <div class="sidebar-note"><span class="small-star" aria-hidden="true">✳</span><h3>Stories bring us<br>closer.</h3><p>A little space for big ideas,<br>rooted in Ghana.</p><div class="note-line"></div><span>READ. RETURN. REPEAT.</span></div>
+    <div class="sidebar-footer"><span class="status-dot"></span> <span id="mode-label">Local library</span><small>A personal portfolio project</small></div>
+  </aside>
+  <div class="page">
+    <header class="topbar"><span class="breadcrumb">The reading room <span>/</span> <strong id="crumb">The collection</strong></span><div id="account"><button class="text-button" id="sign-in">Sign in <span aria-hidden="true">↗</span></button></div></header>
+    <main>
+      <section class="hero" id="hero"><div class="hero-copy"><p class="eyebrow"><span></span> A COMMUNITY OF CURIOUS MINDS</p><h1>Your next chapter<br>starts <em>here.</em></h1><p class="hero-description">Discover voices from home. Find a story that stays<br class="desktop-break"> with you. Make a little room for reading.</p><button class="primary" id="explore">Explore the demo <span aria-hidden="true">↗</span></button><p class="demo-caption" id="demo-caption">No signup needed. Just a little curiosity.</p></div><div class="hero-art" aria-hidden="true"><span class="art-orbit"></span><span class="art-star">✳</span><div class="art-book book-back"><span>AMA ATA AIDOO</span><strong>Changes</strong><i>A LOVE STORY</i><div class="cover-flower">✳</div></div><div class="art-book book-front"><span>AYI KWEI ARMAH</span><strong>The Beautyful<br>Ones Are<br>Not Yet Born</strong><div class="cover-sun"></div><i>A GHANAIAN CLASSIC</i></div><span class="art-caption">GOOD STORIES. SHARED OFTEN.</span></div></section>
+      <section class="collection" aria-labelledby="section-title"><div class="section-heading"><div><p class="eyebrow" id="section-kicker">THE SHELVES ARE OPEN</p><h2 id="section-title">A story for every reader<span>.</span></h2></div><span id="result-count" class="muted"></span></div>
+        <div id="catalog-tools" class="catalog-tools"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search by title or author" aria-label="Search by title or author"><kbd>/</kbd></label><div class="filters" aria-label="Filter books"><button class="filter active" data-filter="all" aria-pressed="true">All books</button><button class="filter" data-filter="available" aria-pressed="false">Available now</button></div></div>
+        <div id="content" class="book-grid" aria-live="polite"><p class="muted">Opening the shelves…</p></div>
+        <section id="reservations" hidden></section>
+      </section>
+      <section id="admin" class="admin-panel" hidden><div><p class="eyebrow">LIBRARIAN'S DESK</p><h2>Grow the collection.</h2><a href="/api/report" target="_blank" rel="noopener">Open status report ↗</a></div><form id="add-book-form"><label>Book title<input name="title" required maxlength="160" placeholder="A new story"></label><label>Author<input name="author" required maxlength="100" placeholder="The voice behind it"></label><button class="primary" type="submit">Add to collection +</button></form></section>
+      <footer><span class="footer-logo">gcl.</span><p>Good books. Open doors. A shared community.</p><span>Made for the love of reading <span class="tiny-star" aria-hidden="true">✳</span></span></footer>
+    </main>
+  </div>
+  <dialog id="auth-dialog"><form id="auth-form"><button class="close" type="button" aria-label="Close sign in">×</button><p class="eyebrow">YOUR PLACE IN THE READING ROOM</p><h2 id="auth-title">Welcome back.</h2><p class="muted" id="auth-description">Sign in to borrow, reserve, and keep reading.</p><label>Username<input name="username" autocomplete="username" maxlength="40" required></label><label>Password<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label><p id="auth-error" role="alert"></p><button class="primary" type="submit" id="auth-submit">Sign in ↗</button><button class="auth-toggle" id="auth-toggle" type="button">New here? Create a reader account</button></form></dialog>
+  <div id="toast" role="status" hidden></div>
+</body></html>

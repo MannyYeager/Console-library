@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+ghana_library_data.json
+Library_Report_*.txt
+*.log
