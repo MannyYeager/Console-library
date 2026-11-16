@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from library import LibrarySystem
-from web import LibraryServer
+from web import LibraryServer, prepare_demo, DEMO_ACCOUNTS
 
 
 class WebTests(unittest.TestCase):
@@ -120,6 +120,22 @@ class WebTests(unittest.TestCase):
         self.server.sessions.clear()
         self.assertEqual(self.request('/api/borrow', {"title": "Changes"}, cookie)[0], 401)
         self.assertEqual(self.request('/api/admin/state')[0], 403)
+
+    def test_entry_screen_and_credential_based_demo_roles(self):
+        prepare_demo(self.lib)
+        self.server.demo_accounts = DEMO_ACCOUNTS
+        self.server.demo_librarian = DEMO_ACCOUNTS['librarian']['username']
+        guest = self.request('/api/state')[2]
+        self.assertEqual(guest['books'], [])
+        self.assertIn('Come on in', self.request('/')[2])
+        for role, expected in [('reader','Student'),('librarian','Admin')]:
+            status, headers, _ = self.request('/api/login', {**DEMO_ACCOUNTS[role], 'role':'Admin'})
+            self.assertEqual(status,200)
+            state = self.request('/api/state',cookie=headers['Set-Cookie'].split(';')[0])[2]
+            self.assertEqual(state['user']['role'],expected)
+            self.assertEqual(len(state['books']),6)
+        self.server.demo = False
+        self.assertEqual(self.request('/api/state')[2]['demo_accounts'],{})
 
 
 if __name__ == "__main__":

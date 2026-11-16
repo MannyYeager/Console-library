@@ -42,13 +42,19 @@ function navigate(nextView) {
 
 function showAuth(mode = 'login') {
   authMode = mode;
+  if (mode === 'login' && !state?.user) {
+    $('#auth-dialog').close();
+    $('#entry-error').textContent = pendingBorrow ? `Sign in to finish borrowing “${pendingBorrow}”.` : '';
+    $('#entry-username').focus();
+    return;
+  }
   $('#auth-title').textContent = mode === 'login' ? (pendingBorrow ? 'A reader account opens this book.' : 'Welcome back.') : 'Make yourself at home.';
   $('#auth-description').textContent = pendingBorrow
     ? `Sign in to borrow “${pendingBorrow}”. ${state.demo ? 'Or continue immediately as a demo reader below.' : 'New readers can create an account below.'}`
     : mode === 'login' ? 'Readers and librarians can sign in here. Librarian accounts are set up by the local operator.' : 'Create a reader account to borrow and reserve books.';
   $('#auth-submit').textContent = mode === 'login' ? 'Sign in ↗' : 'Create reader account ↗';
   $('#auth-toggle').textContent = mode === 'login' ? 'New reader? Create an account' : 'Already have an account? Sign in';
-  $('#auth-demo').hidden = !state.demo;
+  $('#auth-demo').hidden = true;
   const password = $('#auth-form [name=password]');
   password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
   password.minLength = mode === 'login' ? 1 : 8;
@@ -145,6 +151,12 @@ function renderDesk() {
 }
 
 function render() {
+  const signedIn = Boolean(state.user);
+  document.body.classList.toggle('entry-mode',!signedIn);
+  document.body.classList.toggle('librarian-mode',isLibrarian());
+  $('#entry').hidden = signedIn;
+  $('#entry-demo').hidden = !state.demo || !Object.keys(state.demo_accounts || {}).length;
+  if (!signedIn) return;
   renderNavigation();
   const headings = {
     catalog:['THE SHELVES ARE OPEN','A story for every reader','The collection'],
@@ -189,6 +201,7 @@ async function action(path, data, button) {
       showAuth();
     }
     if ($('#auth-dialog').open) $('#auth-error').textContent = error.message;
+    if (!state?.user) $('#entry-error').textContent = error.message;
     if ($('#role-dialog').open) $('#role-error').textContent = error.message;
     toast(error.message,true);
     return false;
@@ -228,6 +241,23 @@ $('#explore').onclick = () => {
   else showAuth('register');
 };
 $('#auth-toggle').onclick = () => showAuth(authMode === 'login' ? 'register' : 'login');
+$('#entry-register').onclick = () => showAuth('register');
+document.querySelectorAll('[data-fill-demo]').forEach(button => button.onclick = () => {
+  const account = state?.demo_accounts?.[button.dataset.fillDemo];
+  if (!account) return;
+  $('#entry-username').value = account.username;
+  $('#entry-password').value = account.password;
+  $('#entry-error').textContent = '';
+  $('#demo-credentials').textContent = `${button.dataset.fillDemo === 'reader' ? 'Reader' : 'Librarian'} demo selected. Click “Open my reading room” to sign in.`;
+  $('#entry-submit').focus();
+});
+$('#entry-form').onsubmit = async event => {
+  event.preventDefault(); $('#entry-error').textContent = '';
+  if (await action('/api/login',Object.fromEntries(new FormData(event.target)),$('#entry-submit'))) {
+    event.target.reset(); $('#demo-credentials').textContent = '';
+    if (pendingBorrow && !isLibrarian()) await transactBook('borrow',pendingBorrow);
+  }
+};
 $('#auth-dialog .close').onclick = () => { pendingBorrow = null; $('#auth-dialog').close(); };
 $('#role-close').onclick = () => $('#role-dialog').close();
 $('#auth-demo').onclick = () => enterDemo('reader',$('#auth-demo'));

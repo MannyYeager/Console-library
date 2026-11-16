@@ -1,6 +1,6 @@
 # Ghana Community Library
 
-A quiet reading room for Ghanaian stories, with a working Python library manager behind it. Browse the collection, borrow a book, join a reservation queue, and see your reading history through either the web interface or the original terminal app.
+A reading room for Ghanaian stories, with an illustrated welcome screen and a working Python library manager behind it. Sign in to browse the collection, borrow books, join reservation queues, or manage the shelves. The original terminal app remains available.
 
 ## Try the web demo
 
@@ -12,19 +12,26 @@ cd Console-library
 python web.py --demo
 ```
 
-Open **http://127.0.0.1:8765/** and choose **Explore the demo**, then **Reader** or **Librarian**. You can also use **Try demo roles** in the header to switch between them. On Windows, `py` can replace `python`; on macOS/Linux, use `python3` if needed. If the port is occupied, use `python web.py --demo --port 8766` and open that port instead.
+Open **http://127.0.0.1:8765/**. The site starts with a full-page login form. Choose **Reader demo** or **Librarian demo** to fill the form, then click **Open my reading room**. The server authenticates those credentials and opens the account's stored role; the login form cannot assign privileges. On Windows, `py` can replace `python`; on macOS/Linux, use `python3` if needed. If the port is occupied, use `python web.py --demo --port 8770` and open that port instead.
 
-The demo starts with six sample books and creates temporary role accounts without asking for credentials. All demo users share the temporary catalog and one demo librarian; it resets when the server stops. It never changes your normal library store. Demo role access is available only with `--demo`, which always uses a temporary file. It cannot grant admin access to a persistent library.
+The demo starts with six sample books and these deliberately public, local-only teaching credentials:
+
+| Role | Username | Demo password |
+| --- | --- | --- |
+| Reader | `reader.demo` | `ReadWithUs26!` |
+| Librarian | `librarian.demo` | `Shelves26!` |
+
+These accounts are created **only in the temporary `--demo` store** and are never installed in a persistent library. All demo users share that catalog and the named demo accounts. Data resets when the server stops. Passwords are hashed even in the demo. The credential hints and optional in-app **Try demo roles** shortcut are disabled outside demo mode.
 
 ### A two-minute walkthrough
 
-1. Enter as **Reader**, then search for **Changes** or **Ama Ata Aidoo**.
-2. Choose **Borrow book**. The app opens **My bookshelf**, shows a success message, and displays the seven-day due date. If you click Borrow as a visitor, the sign-in dialog explains what to do and offers **Continue as demo reader**; the original borrowing action then completes automatically.
-3. Use **Try demo roles → Librarian**. The overview shows the active loan. Open **Loans & returns** and choose **Process return**, or add a title through **The collection**. Reports show real values from the shared local data.
-4. Switch back to **Reader** in the same session. Your reader identity and bookshelf are preserved; **Reading history** now includes the librarian-processed return.
-5. To try reservations, keep a reader signed in after borrowing. Open a separate browser/private window, start another demo reader, and reserve the same title. Return it in the original window; only the first reader in the queue can borrow it next.
+1. Fill the **Reader demo** credentials and submit the login form. Search for **Changes** or **Ama Ata Aidoo**.
+2. Choose **Borrow book**. The app opens **My bookshelf**, shows a success message, and displays the seven-day due date.
+3. **Sign out** to return to the welcome screen. Fill the **Librarian demo** credentials and sign in. The librarian overview shows the active loan. Open **Loans & returns** to **Process return**, or add a title through **The collection**. Reports show values from the shared local data.
+4. Sign back in as the reader. **Reading history** now includes the librarian-processed return. The optional in-app demo role shortcut also switches between these perspectives.
+5. To try reservations, borrow a book in the reader account, then open a separate browser/private window. Use **New reader? Create an account** to register a distinct reader and reserve the same title. Return it as the original reader; only the first reader in the queue can borrow it next.
 
-Signing out ends access to generated demo identities. Restarting the server expires sessions; an attempted borrow from a stale page opens the sign-in/demo recovery flow instead of silently failing. Refreshing also synchronizes the page with the server.
+Signing out returns to the welcome screen. You can sign back into the named demo accounts until the server stops. Restarting the server expires sessions; a borrow from a stale page returns to the sign-in flow instead of silently failing. After signing in, the pending borrowing action completes. Refreshing also synchronizes the page with the server.
 
 ### Two working roles
 

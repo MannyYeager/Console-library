@@ -22,6 +22,18 @@ DEMO_BOOKS = [
     ("Faceless", "Amma Darko"),
     ("This Earth, My Brother…", "Kofi Awoonor"),
 ]
+DEMO_ACCOUNTS = {
+    "reader": {"username": "reader.demo", "password": "ReadWithUs26!"},
+    "librarian": {"username": "librarian.demo", "password": "Shelves26!"},
+}
+
+
+def prepare_demo(library):
+    """Seed credentials only in the temporary --demo store, never normal data."""
+    library.books = [{"title": title, "author": author, "status": "Available"} for title, author in DEMO_BOOKS]
+    library.register_user(**DEMO_ACCOUNTS['reader'])
+    library.create_admin(**DEMO_ACCOUNTS['librarian'])
+    library.save_data()
 
 
 class LibraryServer(ThreadingHTTPServer):
@@ -33,6 +45,7 @@ class LibraryServer(ThreadingHTTPServer):
         self.auth_attempts = []
         self.data_lock = threading.RLock()
         self.demo_librarian = None
+        self.demo_accounts = {}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -97,8 +110,9 @@ class Handler(BaseHTTPRequestHandler):
             borrowed = datetime.strptime(record['date'], "%Y-%m-%d")
             loans.append({**record, "due": (borrowed + timedelta(days=7)).strftime("%Y-%m-%d"),
                           "fine": max(0, (datetime.now() - borrowed).days - 7) * 2})
-        return {"demo": self.server.demo, "user": {"username": username, "role": lib.users[username]['role']} if username else None,
-                "books": books, "loans": loans, "history": lib.history.get(username, []),
+        return {"demo": self.server.demo, "demo_accounts": self.server.demo_accounts if self.server.demo else {},
+                "user": {"username": username, "role": lib.users[username]['role']} if username else None,
+                "books": books if username else [], "loans": loans, "history": lib.history.get(username, []),
                 "reservations": [{"title": title, "position": names.index(username) + 1}
                                  for title, names in lib.reservations.items() if username in names]}
 
@@ -196,6 +210,8 @@ class Handler(BaseHTTPRequestHandler):
                                 self.server.demo_librarian = "librarian-" + secrets.token_hex(3)
                                 lib.create_admin(self.server.demo_librarian, secrets.token_urlsafe(24))
                             username = self.server.demo_librarian
+                        elif role in self.server.demo_accounts:
+                            username = self.server.demo_accounts[role]['username']
                         else:
                             username = lib.register_user("reader-" + secrets.token_hex(3), secrets.token_urlsafe(24))
                         demo_roles[role] = username
@@ -209,6 +225,9 @@ class Handler(BaseHTTPRequestHandler):
                     elif not lib.authenticate(username, password):
                         self.reply(401, {"error": "Username or password is incorrect."})
                         return
+                    if self.server.demo:
+                        demo_roles = {role: username for role, account in self.server.demo_accounts.items()
+                                      if account['username'] == username}
                 cookie = self.new_session(username, demo_roles)
                 message = "Librarian desk opened." if lib.users[username]['role'] == 'Admin' else "Reader session opened. Your next chapter is waiting."
             elif path == "/api/logout":
@@ -255,9 +274,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix="library-demo-") as temp:
         lib = LibrarySystem(Path(temp) / "demo.json" if args.demo else args.data_file)
         if args.demo:
-            lib.books = [{"title": title, "author": author, "status": "Available"} for title, author in DEMO_BOOKS]
-            lib.save_data()
+            prepare_demo(lib)
         with LibraryServer(("127.0.0.1", args.port), lib, args.demo) as server:
+            if args.demo:
+                server.demo_accounts = DEMO_ACCOUNTS
+                server.demo_librarian = DEMO_ACCOUNTS['librarian']['username']
             print(f"Library preview: http://127.0.0.1:{server.server_port}", flush=True)
             print("Demo data resets on restart." if args.demo else f"Data: {lib.data_file}", flush=True)
             try:
