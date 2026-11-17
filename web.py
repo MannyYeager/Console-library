@@ -158,9 +158,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, report, "text/plain; charset=utf-8")
             except ValueError as error:
                 self.reply(403, {"error": str(error)})
-        elif path in {"/", "/app.js", "/style.css"}:
+        elif path in {"/", "/app.js", "/style.css", "/ui.js", "/ui.css", "/theme.css", "/vendor/anime.umd.min.js"}:
             filename, mime = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"),
-                              "/style.css": ("style.css", "text/css")}[path]
+                              "/style.css": ("style.css", "text/css"), "/ui.js": ("ui.js", "text/javascript"),
+                                  "/ui.css": ("ui.css", "text/css"), "/theme.css": ("theme.css", "text/css"),
+                                  "/vendor/anime.umd.min.js": ("vendor/anime.umd.min.js", "text/javascript")}[path]
             self.reply(200, (STATIC / filename).read_bytes(), mime + "; charset=utf-8")
         else:
             self.reply(404, {"error": "Page not found."})

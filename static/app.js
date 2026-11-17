@@ -9,6 +9,7 @@ function toast(message, error = false) {
   $('#toast').textContent = message;
   $('#toast').className = error ? 'error' : '';
   $('#toast').hidden = false;
+  AppUI.feedback('#toast');
   toastTimer = setTimeout(() => { $('#toast').hidden = true; }, error ? 10000 : 7000);
 }
 
@@ -37,6 +38,7 @@ async function refresh() {
 function navigate(nextView) {
   view = nextView;
   render();
+  AppUI.reveal('#content>.book-card,#content>.stat-grid,#content>.desk-intro');
   $('#section-title').focus({preventScroll:true});
 }
 
@@ -136,7 +138,7 @@ function circulationTable(loans, compact = false) {
 function renderDesk() {
   $('#result-count').textContent = 'LIBRARIAN ACCESS';
   if (view === 'overview') {
-    $('#content').innerHTML = `<div class="desk-intro"><span class="role-pill">Librarian session</span><p>A clear view of your collection and the stories out in the community.</p></div><div class="stat-grid">${[[state.books.length,'Books in collection'],[desk.loans.length,'Books on loan'],[desk.readers,'Registered readers'],[desk.reservations.reduce((sum,item) => sum + item.readers.length,0),'Reservations']].map(([number,label]) => `<div class="stat-card"><strong>${number}</strong><span>${label}</span></div>`).join('')}</div><div class="desk-heading"><h3>Out in the community</h3><button class="text-button" id="all-loans">Manage loans & returns ↗</button></div>${circulationTable(desk.loans,true)}<div class="desk-callout"><h3>Make room for another story.</h3><p>Add a title to the shared catalog. Readers will see it immediately.</p><button class="primary" id="manage-collection">Manage the collection +</button></div>`;
+    $('#content').innerHTML = `<div class="desk-intro"><span class="role-pill">Librarian session</span><p>A clear view of your collection and the stories out in the community.</p></div><div class="stat-grid">${[[state.books.length,'Books in collection'],[desk.loans.length,'Books on loan'],[desk.readers,'Registered readers'],[desk.reservations.reduce((sum,item) => sum + item.readers.length,0),'Reservations']].map(([number,label]) => `<div class="stat-card"><span data-icon="${['book','swap','users','clock'][['Books in collection','Books on loan','Registered readers','Reservations'].indexOf(label)]}"></span><strong>${number}</strong><span>${label}</span></div>`).join('')}</div><div class="desk-heading"><h3>Out in the community</h3><button class="text-button" id="all-loans">Manage loans & returns ↗</button></div>${circulationTable(desk.loans,true)}<div class="desk-callout"><h3>Make room for another story.</h3><p>Add a title to the shared catalog. Readers will see it immediately.</p><button class="primary" id="manage-collection">Manage the collection +</button></div>`;
     $('#all-loans').onclick = () => navigate('circulation');
     $('#manage-collection').onclick = () => navigate('manage');
   } else if (view === 'circulation') {
@@ -157,6 +159,10 @@ function render() {
   $('#entry').hidden = signedIn;
   $('#entry-demo').hidden = !state.demo || !Object.keys(state.demo_accounts || {}).length;
   if (!signedIn) return;
+  $('#reading-strip').hidden = isLibrarian() || view !== 'catalog';
+  $('#available-count').textContent = state.books.filter(book => book.available && !book.reserved_for_other).length;
+  $('#shelf-count').textContent = state.loans.length;
+  $('#queue-count').textContent = state.reservations.length;
   renderNavigation();
   const headings = {
     catalog:['THE SHELVES ARE OPEN','A story for every reader','The collection'],
@@ -192,6 +198,7 @@ async function action(path, data, button) {
   try {
     const result = await api(path,data);
     await refresh();
+    AppUI.reveal('#content>.book-card,#content>.stat-grid');
     toast(result.message);
     return true;
   } catch (error) {

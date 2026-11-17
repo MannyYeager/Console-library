@@ -43,7 +43,9 @@ class WebTests(unittest.TestCase):
         return result
 
     def test_static_page_and_assets(self):
-        for path, text in [("/", "Your next chapter"), ("/app.js", "/api/state"), ("/style.css", "prefers-reduced-motion")]:
+        for path, text in [("/", "Your next chapter"), ("/app.js", "/api/state"), ("/style.css", "prefers-reduced-motion"),
+                           ("/ui.js", "prefers-reduced-motion"), ("/ui.css", ".ui-icon"),
+                           ("/theme.css", "saffron"), ("/vendor/anime.umd.min.js", "Anime.js")]:
             status, headers, body = self.request(path)
             self.assertEqual(status, 200)
             self.assertIn(text, body)
