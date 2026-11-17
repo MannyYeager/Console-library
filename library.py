@@ -56,7 +56,8 @@ class LibrarySystem:
             "users": self.users,
             "borrowed_records": self.borrowed_records,
             "history": self.history,
-            "reservations": self.reservations
+            "reservations": self.reservations,
+            "favorites": getattr(self, 'favorites', {})
         }
         # Replace the complete file only after writing it successfully.
         temp_path = None
@@ -79,6 +80,7 @@ class LibrarySystem:
                 self.borrowed_records = data.get("borrowed_records", {})
                 self.history = data.get("history", {})
                 self.reservations = data.get("reservations", {})
+                self.favorites = data.get('favorites', {})
             # Older versions allowed anyone to select Admin. Those roles cannot
             # be trusted; a local operator must explicitly bootstrap an admin.
             migrated = False
@@ -121,7 +123,9 @@ class LibrarySystem:
         user = self.users.get(username.strip())
         return bool(user and verify_password(password, user.get("password_hash")))
 
-    def borrow_title(self, username, title):
+    def borrow_title(self, username, title, loan_days=7):
+        if isinstance(loan_days, bool) or not isinstance(loan_days, int) or loan_days not in {7, 14, 21, 28}:
+            raise ValueError('Choose a loan duration of 7, 14, 21 or 28 days.')
         if username not in self.users:
             raise ValueError("Please log in first.")
         book = next((b for b in self.books if b['title'].casefold() == title.strip().casefold()), None)
@@ -139,10 +143,12 @@ class LibrarySystem:
             return "Added to the reservation queue."
         if queue and queue[0] != username:
             raise ValueError("This book is reserved for the next reader in the queue.")
+        if len(records) >= 5:
+            raise ValueError('You can borrow up to five books at a time. Return one before borrowing another.')
         if queue:
             queue.pop(0)
         book['status'] = f"Out ({username})"
-        records.append({"title": book['title'], "date": datetime.now().strftime("%Y-%m-%d")})
+        records.append({"title": book['title'], "date": datetime.now().strftime("%Y-%m-%d"), 'loan_days': loan_days, 'renewals': 0})
         self.save_data()
         return "Book borrowed. Enjoy your next chapter!"
 
@@ -152,7 +158,7 @@ class LibrarySystem:
         if not record:
             raise ValueError("No matching borrowing record.")
         days = (datetime.now() - datetime.strptime(record['date'], "%Y-%m-%d")).days
-        fine = max(0, days - 7) * 2
+        fine = max(0, days - record.get('loan_days', 7)) * 2
         for book in self.books:
             if book['title'] == record['title']:
                 book['status'] = "Available"
@@ -163,7 +169,42 @@ class LibrarySystem:
         self.save_data()
         return f"Book returned. Recorded fine: GHS {fine}.00 (simulation)."
 
-    def add_book(self, username, title, author):
+    def renew_title(self, username, title):
+        record = next((r for r in self.borrowed_records.get(username, []) if r['title'] == title), None)
+        if not record:
+            raise ValueError('This book is not on your bookshelf.')
+        days = (datetime.now() - datetime.strptime(record['date'], '%Y-%m-%d')).days
+        if record.get('renewals', 0) or days > record.get('loan_days', 7):
+            raise ValueError('Only an on-time loan that has not been renewed can be extended.')
+        if self.reservations.get(title):
+            raise ValueError('Another reader is waiting. Return this book by its current due date.')
+        record['loan_days'] = record.get('loan_days', 7) + 7
+        record['renewals'] = 1
+        self.save_data()
+        return 'Your loan has been extended by seven days.'
+
+    def cancel_reservation(self, username, title):
+        queue = self.reservations.get(title, [])
+        if username not in queue:
+            raise ValueError('You do not have a reservation for this book.')
+        queue.remove(username)
+        self.save_data()
+        return 'Reservation cancelled. The queue has been updated.'
+
+    def save_title(self, username, title, saved=True):
+        if username not in self.users or not any(b['title'] == title for b in self.books):
+            raise ValueError('Choose a book from the catalog.')
+        if not hasattr(self, 'favorites'):
+            self.favorites = {}
+        titles = self.favorites.setdefault(username, [])
+        if saved and title not in titles:
+            titles.append(title)
+        elif not saved and title in titles:
+            titles.remove(title)
+        self.save_data()
+        return 'Reading list updated.'
+
+    def add_book(self, username, title, author, genre='Literature', pages='', description=''):
         if self.users.get(username, {}).get("role") != "Admin":
             raise ValueError("Only an admin can add books.")
         title, author = title.strip(), author.strip()
@@ -171,7 +212,12 @@ class LibrarySystem:
             raise ValueError("Enter a title (up to 160 characters) and author (up to 100).")
         if any(b['title'].casefold() == title.casefold() for b in self.books):
             raise ValueError("This title is already in the catalog.")
-        self.books.append({"title": title, "author": author, "status": "Available"})
+        if not isinstance(genre, str) or not genre.strip() or len(genre.strip()) > 40 or not isinstance(description, str) or len(description) > 1200:
+            raise ValueError('Use a category up to 40 characters and a description up to 1200.')
+        if pages and (not str(pages).isascii() or not str(pages).isdigit() or not 1 <= int(pages) <= 20000):
+            raise ValueError('Page count must be a whole number from 1 to 20000.')
+        self.books.append({"title": title, "author": author, "status": "Available", 'genre': genre.strip(),
+                           'pages': int(pages) if pages else None, 'description': description.strip()})
         self.save_data()
 
     def report_text(self, username):

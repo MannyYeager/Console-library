@@ -102,17 +102,22 @@ class Handler(BaseHTTPRequestHandler):
         for book in lib.books:
             queue = lib.reservations.get(book['title'], [])
             books.append({"title": book['title'], "author": book['author'],
+                          'genre': book.get('genre', 'Ghanaian literature'), 'pages': book.get('pages'), 'description': book.get('description', ''),
                           "available": book['status'] == "Available",
                           "waiting": len(queue), "reserved_for_me": bool(queue and queue[0] == username),
                           "reserved_for_other": bool(queue and queue[0] != username)})
         loans = []
         for record in lib.borrowed_records.get(username, []):
             borrowed = datetime.strptime(record['date'], "%Y-%m-%d")
-            loans.append({**record, "due": (borrowed + timedelta(days=7)).strftime("%Y-%m-%d"),
-                          "fine": max(0, (datetime.now() - borrowed).days - 7) * 2})
+            duration = record.get('loan_days', 7)
+            loans.append({**record, 'loan_days': duration, "due": (borrowed + timedelta(days=duration)).strftime("%Y-%m-%d"),
+                          'days_left': duration - (datetime.now() - borrowed).days,
+                          'can_renew': not record.get('renewals', 0) and not lib.reservations.get(record['title']) and (datetime.now() - borrowed).days <= duration,
+                          "fine": max(0, (datetime.now() - borrowed).days - duration) * 2})
         return {"demo": self.server.demo, "demo_accounts": self.server.demo_accounts if self.server.demo else {},
                 "user": {"username": username, "role": lib.users[username]['role']} if username else None,
                 "books": books if username else [], "loans": loans, "history": lib.history.get(username, []),
+                'favorites': getattr(lib, 'favorites', {}).get(username, []), 'loan_limit': 5,
                 "reservations": [{"title": title, "position": names.index(username) + 1}
                                  for title, names in lib.reservations.items() if username in names]}
 
@@ -124,10 +129,11 @@ class Handler(BaseHTTPRequestHandler):
         for reader, records in lib.borrowed_records.items():
             for record in records:
                 borrowed = datetime.strptime(record['date'], "%Y-%m-%d")
-                due = borrowed + timedelta(days=7)
+                duration = record.get('loan_days', 7)
+                due = borrowed + timedelta(days=duration)
                 loans.append({**record, "reader": reader, "due": due.strftime("%Y-%m-%d"),
-                              "overdue": (datetime.now() - borrowed).days > 7,
-                              "fine": max(0, (datetime.now() - borrowed).days - 7) * 2})
+                              "overdue": (datetime.now() - borrowed).days > duration,
+                              "fine": max(0, (datetime.now() - borrowed).days - duration) * 2})
         return {"loans": loans, "readers": sum(u.get('role') == 'Student' for u in lib.users.values()),
                 "reservations": [{"title": title, "readers": readers}
                                  for title, readers in lib.reservations.items() if readers],
@@ -158,10 +164,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, report, "text/plain; charset=utf-8")
             except ValueError as error:
                 self.reply(403, {"error": str(error)})
-        elif path in {"/", "/app.js", "/style.css", "/ui.js", "/ui.css", "/theme.css", "/vendor/anime.umd.min.js"}:
+        elif path in {"/", "/app.js", "/style.css", "/ui.js", "/ui.css", "/theme.css", "/workspace.css", "/vendor/anime.umd.min.js"}:
             filename, mime = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"),
                               "/style.css": ("style.css", "text/css"), "/ui.js": ("ui.js", "text/javascript"),
-                                  "/ui.css": ("ui.css", "text/css"), "/theme.css": ("theme.css", "text/css"),
+                                  "/ui.css": ("ui.css", "text/css"), "/theme.css": ("theme.css", "text/css"), "/workspace.css": ("workspace.css", "text/css"),
                                   "/vendor/anime.umd.min.js": ("vendor/anime.umd.min.js", "text/javascript")}[path]
             self.reply(200, (STATIC / filename).read_bytes(), mime + "; charset=utf-8")
         else:
@@ -249,11 +255,20 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(404, {"error": "Action not found."})
                     return
             elif path == "/api/borrow":
-                message = lib.borrow_title(username, data.get("title", ""))
+                raw_days = data.get('loan_days', '7')
+                if raw_days not in {'7', '14', '21', '28'}:
+                    raise ValueError('Choose 7, 14, 21 or 28 days.')
+                message = lib.borrow_title(username, data.get("title", ""), int(raw_days))
+            elif path == '/api/renew':
+                message = lib.renew_title(username, data.get('title', ''))
+            elif path == '/api/cancel-reservation':
+                message = lib.cancel_reservation(username, data.get('title', ''))
+            elif path in {'/api/save-book', '/api/unsave-book'}:
+                message = lib.save_title(username, data.get('title', ''), path == '/api/save-book')
             elif path == "/api/return":
                 message = lib.return_title(username, data.get("title", ""))
             elif path == "/api/add-book":
-                lib.add_book(username, data.get("title", ""), data.get("author", ""))
+                lib.add_book(username, data.get("title", ""), data.get("author", ""), data.get('genre', 'Literature'), data.get('pages', ''), data.get('description', ''))
                 message = "A new story has joined the shelves."
             else:
                 self.reply(404, {"error": "Action not found."})

@@ -23,26 +23,15 @@ The demo starts with six sample books and these deliberately public, local-only 
 
 These accounts are created **only in the temporary `--demo` store** and are never installed in a persistent library. All demo users share that catalog and the named demo accounts. Data resets when the server stops. Passwords are hashed even in the demo. The credential hints and optional in-app **Try demo roles** shortcut are disabled outside demo mode.
 
-### A two-minute walkthrough
+### A fuller reading workflow
 
-1. Fill the **Reader demo** credentials and submit the login form. Search for **Changes** or **Ama Ata Aidoo**.
-2. Choose **Borrow book**. The app opens **My bookshelf**, shows a success message, and displays the seven-day due date.
-3. **Sign out** to return to the welcome screen. Fill the **Librarian demo** credentials and sign in. The librarian overview shows the active loan. Open **Loans & returns** to **Process return**, or add a title through **The collection**. Reports show values from the shared local data.
-4. Sign back in as the reader. **Reading history** now includes the librarian-processed return. The optional in-app demo role shortcut also switches between these perspectives.
-5. To try reservations, borrow a book in the reader account, then open a separate browser/private window. Use **New reader? Create an account** to register a distinct reader and reserve the same title. Return it as the original reader; only the first reader in the queue can borrow it next.
+Reader sections are **Discover**, **My bookshelf**, **Reservations**, **Reading list** and **Reading history**. Find a title by name, author or category, open its details and choose a **7, 14, 21 or 28 day** loan. The confirmation shows your return date, current borrowing capacity and the simulated GHS 2-per-day late policy. Readers can borrow up to five books.
 
-Signing out returns to the welcome screen. You can sign back into the named demo accounts until the server stops. Restarting the server expires sessions; a borrow from a stale page returns to the sign-in flow instead of silently failing. After signing in, the pending borrowing action completes. Refreshing also synchronizes the page with the server.
+An on-time loan may be extended once by seven days if no reader is waiting. Renewal is blocked for overdue or already-renewed loans. Returns show the recorded simulated fine before confirmation. Legacy borrowing records without duration metadata retain their original seven-day policy.
 
-### Two working roles
+Unavailable titles have a FIFO reservation queue. Readers can view their position, leave the queue, and choose a loan duration when their reserved title is ready. Heart buttons maintain a persistent per-reader next-read list. Book details also include an optional librarian description/page count and a clearly labelled community reading prompt.
 
-| Reader | Librarian |
-| --- | --- |
-| Search, borrow, and reserve | Collection and circulation overview |
-| Personal bookshelf and due dates | Add catalog entries |
-| Return own books | Process returns on behalf of readers |
-| Personal reading history | Reservation queues and live text reports |
-
-Both roles use the same Python rules and data. The server checks librarian privileges on every management endpoint; hiding reader navigation is not the authorization boundary. In persistent mode, both roles sign in with their own username/password and only the local setup command can create the first admin.
+Librarian sections separate **Overview**, **The collection**, **Loans & returns** and **Reports**. Add titles with category, optional page count and description; process reader returns; review due dates and queues; and export a live text report. Loan dates, availability and fines use the same domain rules across both roles and the terminal application.
 
 ## Use a persistent library
 
@@ -73,7 +62,7 @@ Run one application process per data file; simultaneous terminal and web process
 - Searchable catalog, availability filter, and responsive web layout.
 - Reader registration, sign-in, sign-out, personal loans, and return history.
 - Case-insensitive title matching and first-in, first-out reservations.
-- Seven-day loans; simulated late fines of **GHS 2 per day** after day seven.
+- Selectable-duration loans; simulated late fines of **GHS 2 per day** after day seven.
 - A separate librarian desk for inventory additions, active loans, reader returns, reservation queues, and text reports.
 - Salted PBKDF2-HMAC-SHA256 password hashes with 600,000 iterations.
 - Local web sessions with HttpOnly/SameSite cookies, origin checks, and basic authentication throttling.
@@ -112,3 +101,7 @@ The browser app includes a distinct colour palette, custom stroke SVG icons, ric
 
 Anime.js **4.5.0** is vendored at `static/vendor/anime.umd.min.js` from the official npm distribution, with its MIT license in `static/vendor/ANIME-LICENSE.md`. No CDN, build step, or internet connection is needed at runtime. `static/ui.js` and `static/ui.css` provide the shared icon and motion layer; `static/theme.css` contains this app’s visual theme. See [Anime.js installation](https://animejs.com/documentation/getting-started/installation/).
 `node test_motion.cjs` checks the motion preference and missing-runtime fallbacks (Node.js is needed only for this optional check).
+
+### Expanded workspace implementation
+
+`static/workspace.css` contains the illustrated hero, loan dialog, duration selector, reading-list and reservation layouts. The backend stores `loan_days`, renewal count and per-reader saved titles alongside the existing atomic JSON store. New domain/HTTP tests cover selected durations, fine calculations, renewals, waiting readers, persistence and the five-book limit. Existing authentication and migration safeguards remain in place.

@@ -45,12 +45,28 @@ class WebTests(unittest.TestCase):
     def test_static_page_and_assets(self):
         for path, text in [("/", "Your next chapter"), ("/app.js", "/api/state"), ("/style.css", "prefers-reduced-motion"),
                            ("/ui.js", "prefers-reduced-motion"), ("/ui.css", ".ui-icon"),
-                           ("/theme.css", "saffron"), ("/vendor/anime.umd.min.js", "Anime.js")]:
+                           ("/theme.css", "saffron"), ("/workspace.css", "duration-options"), ("/vendor/anime.umd.min.js", "Anime.js")]:
             status, headers, body = self.request(path)
             self.assertEqual(status, 200)
             self.assertIn(text, body)
             self.assertIn("frame-ancestors 'none'", headers['Content-Security-Policy'])
         self.assertEqual(self.request("/../library.py")[0], 404)
+
+    def test_duration_renewal_and_saved_list_over_http(self):
+        status, headers, _ = self.request('/api/register', {'username':'loan-reader','password':'test-password'})
+        self.assertEqual(status,200)
+        cookie=headers['Set-Cookie'].split(';')[0]
+        title=self.lib.books[0]['title']
+        self.assertEqual(self.request('/api/borrow',{'title':title,'loan_days':'21'},cookie)[0],200)
+        loan=self.request('/api/state',cookie=cookie)[2]['loans'][0]
+        self.assertEqual(loan['loan_days'],21)
+        self.assertTrue(loan['can_renew'])
+        self.assertEqual(self.request('/api/renew',{'title':title},cookie)[0],200)
+        self.assertEqual(self.request('/api/state',cookie=cookie)[2]['loans'][0]['loan_days'],28)
+        self.assertEqual(self.request('/api/renew',{'title':title},cookie)[0],400)
+        self.request('/api/save-book',{'title':title},cookie)
+        self.assertEqual(self.request('/api/state',cookie=cookie)[2]['favorites'],[title])
+        self.assertEqual(self.request('/api/borrow',{'title':self.lib.books[1]['title'],'loan_days':'999'},cookie)[0],400)
 
     def test_registration_login_logout_and_session(self):
         status, headers, _ = self.request('/api/register', {"username": "ama", "password": "test-password", "role": "Admin"})
